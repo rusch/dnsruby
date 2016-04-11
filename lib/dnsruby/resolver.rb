@@ -859,6 +859,7 @@ module Dnsruby
       @query_list = {}
       @timeouts = {}
     end
+
     def send_async(msg, client_queue, client_query_id=nil)
       #  This is the whole point of the Resolver class.
       #  We want to use multiple SingleResolvers to run a query.
@@ -869,20 +870,18 @@ module Dnsruby
       #  When the final response is known, this class then sticks it in
       #  to the client queue.
 
-      q = Queue.new
+      select_queue = Queue.new
+
       if client_query_id.nil?
-        client_query_id = Time.now + rand(10000)
+        client_query_id = Random.rand.to_s[2..10]
       end
 
       unless client_queue.kind_of?(Queue)
-        log_and_raise('Wrong type for client_queue in Resolver# send_async')
-        #  @TODO@ Handle different queue tuples - push this to generic send_error method
-        client_queue.push([client_query_id, ArgumentError.new('Wrong type of client_queue passed to Dnsruby::Resolver# send_async - should have been Queue, was #{client_queue.class}')])
-        return
+        log_and_raise('Wrong type for client_queue in Resolver#send_async')
       end
 
-      unless msg.kind_of?Message
-        Dnsruby.log.error{'Wrong type for msg in Resolver# send_async'}
+      unless msg.kind_of?(Message)
+        Dnsruby.log.error{'Wrong type for msg in Resolver#send_async'}
         #  @TODO@ Handle different queue tuples - push this to generic send_error method
         client_queue.push([client_query_id, ArgumentError.new("Wrong type of msg passed to Dnsruby::Resolver# send_async - should have been Message, was #{msg.class}")])
         return
@@ -900,7 +899,7 @@ module Dnsruby
           return
         end
         outstanding = []
-        @query_list[client_query_id]=[msg, client_queue, q, outstanding]
+        @query_list[client_query_id]=[msg, client_queue, select_queue, outstanding]
 
         query_timeout = Time.now + @parent.query_timeout
         if @parent.query_timeout == 0
@@ -912,7 +911,7 @@ module Dnsruby
       #  Now do querying stuff using SingleResolver
       #  All this will be handled by the tick method (if we have 0 as the first timeout)
       st = SelectThread.instance
-      st.add_observer(q, self)
+      st.add_observer(select_queue, self)
       tick if tick_needed
       client_query_id
     end
