@@ -142,6 +142,9 @@ module Dnsruby
     @@logger
   end
 
+  def Dnsruby.log=(logger)
+    @@logger = logger
+  end
 
   #  Logs (error level) and raises an error.
   def log_and_raise(object, error_class = RuntimeError)
